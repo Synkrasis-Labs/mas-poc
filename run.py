@@ -177,13 +177,11 @@ async def run_single_rover_demo():
     world = FarmingRover()
     shared_world_state = copy.deepcopy(world._init_world_state)
     
-    # prompt = (
-    #     "Unlock safety. Reserve and drive to plant_C, harvest its fruit. "
-    #     "Then reserve the collection bin, take the load there, empty the hopper, "
-    #     "release the station, and return to home base. Use proper coordination."
-    # )
-    
-    prompt = "Water plant_C"
+    prompt = (
+        "Unlock safety. Reserve and drive to plant_C, harvest its fruit. "
+        "Then reserve the collection bin, take the load there, empty the hopper, "
+        "release the station, and return to home base. Use proper coordination."
+    )
     
     result = await run_rover_agent("rover_1", Rover1, prompt, shared_world_state)
     

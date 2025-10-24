@@ -1,9 +1,10 @@
-# farm_world.py
+# farm_world.py - Multi-Agent System Version (Fully Fixed)
 from __future__ import annotations
 from typing import Dict, Any, Optional, List
 from math import sqrt
 from agents import function_tool, RunContextWrapper
 from farm_context import FarmContext
+import datetime
 
 WORLD_STATE_DESCRIPTION = "Multi-Agent Farming System state: {}"
 
@@ -75,6 +76,60 @@ def _check_station_occupied(wstate, rover_id: str, station_x: float, station_y: 
     return False, None
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# INTERNAL HELPER FUNCTIONS (Not decorated with @function_tool)
+# These are safe to call from within other functions
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _log_task_completion_impl(w, rover_id: str, task_description: str) -> None:
+    """Internal helper to log task completion without calling a tool."""
+    log_entry = {
+        "rover_id": rover_id,
+        "task": task_description,
+        "timestamp": datetime.datetime.now().isoformat(),
+    }
+    w.task_log.append(log_entry)
+
+
+def _move_to_impl(w, my_id: str, x: float, y: float, yaw: Optional[float] = None) -> Dict[str, Any]:
+    """Internal implementation of move_to logic without the @function_tool decorator."""
+    rover = w.rovers.get(my_id)
+    
+    if rover is None:
+        return {"ok": False, "error": "Rover not found."}
+    
+    if rover.safety_mode:
+        return {"ok": False, "error": "Safety mode is enabled. Unlock before moving."}
+    
+    if not _within_bounds(w, x, y):
+        return {"ok": False, "error": "Target location out of field bounds."}
+    
+    if _in_no_go_zone(w, x, y):
+        return {"ok": False, "error": "Target location lies within a no-go zone."}
+    
+    # Check collision with other rovers
+    collision, conflicting_rover = _check_collision_with_rovers(w, my_id, x, y, w.collision_safety_radius)
+    if collision:
+        w.conflict_log.append({
+            "type": "collision_avoided",
+            "rover": my_id,
+            "conflicting_rover": conflicting_rover,
+            "location": {"x": x, "y": y}
+        })
+        return {"ok": False, "error": f"Target location too close to {conflicting_rover}. Collision risk."}
+    
+    rover.pose.x, rover.pose.y = x, y
+    if yaw is not None:
+        rover.pose.yaw = yaw
+    
+    rover.status = "moving"
+    return {"ok": True, "pose": {"x": rover.pose.x, "y": rover.pose.y, "yaw": rover.pose.yaw}}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FARMING ROVER CLASS
+# ═══════════════════════════════════════════════════════════════════════════════
+
 class FarmingRover:
     """
     Stateless facade for Multi-Agent System:
@@ -97,7 +152,7 @@ class FarmingRover:
             # Tolerances
             "plant_tolerance_xy": 0.30,
             "station_tolerance_xy": 0.40,
-            "collision_safety_radius": 1.0,  # Minimum distance between rovers
+            "collision_safety_radius": 1.0,
 
             # Multi-rover configuration
             "rovers": {
@@ -112,7 +167,7 @@ class FarmingRover:
                     "water_tank_l": 5.0,
                     "pesticide_tank_capacity_ml": 500.0,
                     "pesticide_tank_ml": 200.0,
-                    "status": "idle",  # idle, moving, harvesting, watering, spraying, refilling, dumping
+                    "status": "idle",
                     "current_task": None,
                     "task_queue": [],
                 },
@@ -171,8 +226,8 @@ class FarmingRover:
             "max_moisture": 0.80,
 
             # Task coordination
-            "task_log": [],  # Global log of completed tasks
-            "conflict_log": [],  # Log of conflicts/collisions avoided
+            "task_log": [],
+            "conflict_log": [],
         }
 
 
@@ -302,14 +357,7 @@ def log_task_completion(ctx: RunContextWrapper[FarmContext], task_description: s
     """Log a completed task to the global task log."""
     w = ws(ctx)
     my_id = ctx.context.rover_id
-    import datetime
-    
-    log_entry = {
-        "rover_id": my_id,
-        "task": task_description,
-        "timestamp": datetime.datetime.now().isoformat(),
-    }
-    w.task_log.append(log_entry)
+    _log_task_completion_impl(w, my_id, task_description)
     return {"ok": True, "message": "Task logged."}
 
 
@@ -390,37 +438,7 @@ def move_to(ctx: RunContextWrapper[FarmContext], x: float, y: float, yaw: Option
     """
     w = ws(ctx)
     my_id = ctx.context.rover_id
-    rover = w.rovers.get(my_id)
-    
-    if rover is None:
-        return {"ok": False, "error": "Rover not found."}
-    
-    if rover.safety_mode:
-        return {"ok": False, "error": "Safety mode is enabled. Unlock before moving."}
-    
-    if not _within_bounds(w, x, y):
-        return {"ok": False, "error": "Target location out of field bounds."}
-    
-    if _in_no_go_zone(w, x, y):
-        return {"ok": False, "error": "Target location lies within a no-go zone."}
-    
-    # Check collision with other rovers
-    collision, conflicting_rover = _check_collision_with_rovers(w, my_id, x, y, w.collision_safety_radius)
-    if collision:
-        w.conflict_log.append({
-            "type": "collision_avoided",
-            "rover": my_id,
-            "conflicting_rover": conflicting_rover,
-            "location": {"x": x, "y": y}
-        })
-        return {"ok": False, "error": f"Target location too close to {conflicting_rover}. Collision risk."}
-    
-    rover.pose.x, rover.pose.y = x, y
-    if yaw is not None:
-        rover.pose.yaw = yaw
-    
-    rover.status = "moving"
-    return {"ok": True, "pose": {"x": rover.pose.x, "y": rover.pose.y, "yaw": rover.pose.yaw}}
+    return _move_to_impl(w, my_id, x, y, yaw)
 
 
 @function_tool
@@ -433,11 +451,9 @@ def move_home(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     if rover is None:
         return {"ok": False, "error": "Rover not found."}
     
-    if rover.safety_mode:
-        return {"ok": False, "error": "Safety mode is enabled. Unlock before moving."}
-    
     hp = rover.home_pose
-    return move_to(ctx, hp.x, hp.y, hp.yaw)
+    # FIXED: Use helper function instead of calling move_to tool
+    return _move_to_impl(w, my_id, hp.x, hp.y, hp.yaw)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -485,7 +501,8 @@ def harvest_fruit(ctx: RunContextWrapper[FarmContext], plant_id: str) -> Dict[st
     plant.reserved_by = None  # Auto-release after harvest
     rover.status = "harvesting"
     
-    log_task_completion(ctx, f"Harvested {plant.fruit_weight:.2f}kg from {plant_id}")
+    # FIXED: Use helper function instead of calling log_task_completion tool
+    _log_task_completion_impl(w, my_id, f"Harvested {plant.fruit_weight:.2f}kg from {plant_id}")
     
     return {
         "ok": True,
@@ -536,7 +553,8 @@ def water_plant(ctx: RunContextWrapper[FarmContext], plant_id: str, liters: floa
     plant.reserved_by = None  # Auto-release after watering
     rover.status = "watering"
     
-    log_task_completion(ctx, f"Watered {plant_id} with {liters:.2f}L")
+    # FIXED: Use helper function instead of calling log_task_completion tool
+    _log_task_completion_impl(w, my_id, f"Watered {plant_id} with {liters:.2f}L")
     
     return {
         "ok": True,
@@ -587,7 +605,8 @@ def spray_pesticide(ctx: RunContextWrapper[FarmContext], plant_id: str, ml: floa
     plant.reserved_by = None  # Auto-release after spraying
     rover.status = "spraying"
     
-    log_task_completion(ctx, f"Sprayed {ml:.0f}ml pesticide on {plant_id}")
+    # FIXED: Use helper function instead of calling log_task_completion tool
+    _log_task_completion_impl(w, my_id, f"Sprayed {ml:.0f}ml pesticide on {plant_id}")
     
     return {
         "ok": True,
@@ -629,7 +648,8 @@ def dump_hopper(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     rover.hopper_load_kg = 0.0
     rover.status = "dumping"
     
-    log_task_completion(ctx, f"Dumped {dumped:.2f}kg at collection bin")
+    # FIXED: Use helper function instead of calling log_task_completion tool
+    _log_task_completion_impl(w, my_id, f"Dumped {dumped:.2f}kg at collection bin")
     
     return {"ok": True, "message": f"Dumped {dumped:.2f} kg at collection bin.", "dumped_kg": dumped}
 
@@ -662,7 +682,8 @@ def refill_water_tank(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     rover.water_tank_l = rover.water_tank_capacity_l
     rover.status = "refilling"
     
-    log_task_completion(ctx, f"Refilled water tank to {rover.water_tank_l:.2f}L")
+    # FIXED: Use helper function instead of calling log_task_completion tool
+    _log_task_completion_impl(w, my_id, f"Refilled water tank to {rover.water_tank_l:.2f}L")
     
     return {"ok": True, "message": f"Water tank refilled to {rover.water_tank_l:.2f} L.", "water_tank_l": rover.water_tank_l}
 
@@ -695,7 +716,8 @@ def refill_pesticide(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     rover.pesticide_tank_ml = rover.pesticide_tank_capacity_ml
     rover.status = "refilling"
     
-    log_task_completion(ctx, f"Refilled pesticide tank to {rover.pesticide_tank_ml:.0f}ml")
+    # FIXED: Use helper function instead of calling log_task_completion tool
+    _log_task_completion_impl(w, my_id, f"Refilled pesticide tank to {rover.pesticide_tank_ml:.0f}ml")
     
     return {
         "ok": True,
@@ -732,7 +754,8 @@ def recharge(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     rover.battery_pct = 100.0
     rover.status = "charging"
     
-    log_task_completion(ctx, "Recharged battery to 100%")
+    # FIXED: Use helper function instead of calling log_task_completion tool
+    _log_task_completion_impl(w, my_id, "Recharged battery to 100%")
     
     return {"ok": True, "message": "Battery recharged to 100%.", "battery_pct": rover.battery_pct}
 
