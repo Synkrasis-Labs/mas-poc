@@ -1,3 +1,4 @@
+# farm_world.py - Single Agent Version (Fixed)
 from __future__ import annotations
 from typing import Dict, Any, Optional
 from math import sqrt
@@ -25,9 +26,11 @@ def ws(ctx):
     """Fetch the run-scoped WorldState from the Agents SDK context."""
     return ctx.context.world_state
 
+
 def _within_bounds(wstate, x: float, y: float) -> bool:
     b = wstate.field_bounds
     return (b.xmin <= x <= b.xmax) and (b.ymin <= y <= b.ymax)
+
 
 def _in_no_go_zone(wstate, x: float, y: float) -> bool:
     for rect in wstate.no_go_xy:
@@ -35,8 +38,24 @@ def _in_no_go_zone(wstate, x: float, y: float) -> bool:
             return True
     return False
 
+
 def _dist_xy(ax: float, ay: float, bx: float, by: float) -> float:
     return sqrt((ax - bx) ** 2 + (ay - by) ** 2)
+
+
+def _move_to_impl(w, x: float, y: float, yaw: Optional[float] = None) -> Dict[str, Any]:
+    """Internal implementation of move_to logic without the @function_tool decorator."""
+    if w.safety_mode:
+        return {"ok": False, "error": "Safety mode is enabled. Unlock before moving."}
+    if not _within_bounds(w, x, y):
+        return {"ok": False, "error": "Target location out of field bounds."}
+    if _in_no_go_zone(w, x, y):
+        return {"ok": False, "error": "Target location lies within a no-go zone."}
+
+    w.pose.x, w.pose.y = x, y
+    if yaw is not None:
+        w.pose.yaw = yaw
+    return {"ok": True, "pose": {"x": w.pose.x, "y": w.pose.y, "yaw": w.pose.yaw}}
 
 
 class FarmingRover:
@@ -96,6 +115,7 @@ def get_world_state(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     """Returns the full world-state snapshot as a plain dict."""
     return ws(ctx).model_dump()
 
+
 @function_tool
 def summarize_world_state(ctx: RunContextWrapper[FarmContext]) -> str:
     """Returns a compact human-readable summary of the world state."""
@@ -110,12 +130,14 @@ def summarize_world_state(ctx: RunContextWrapper[FarmContext]) -> str:
         f"plants={len(w.plants)}"
     )
 
+
 @function_tool
 def unlock_safety_mode(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     """Disables the rover's safety lock to allow motion and actuations."""
     w = ws(ctx)
     w.safety_mode = False
     return {"ok": True, "message": "Safety mode unlocked."}
+
 
 @function_tool
 def lock_safety_mode(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
@@ -125,6 +147,7 @@ def lock_safety_mode(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     return {"ok": True, "message": "Safety mode locked."}
 
 
+
 @function_tool
 def move_to(ctx: RunContextWrapper[FarmContext], x: float, y: float, yaw: Optional[float] = None, speed: Optional[float] = None) -> Dict[str, Any]:
     """
@@ -132,32 +155,22 @@ def move_to(ctx: RunContextWrapper[FarmContext], x: float, y: float, yaw: Option
     Preconditions: safety off, within bounds, not in no-go zone.
     """
     w = ws(ctx)
-    if w.safety_mode:
-        return {"ok": False, "error": "Safety mode is enabled. Unlock before moving."}
-    if not _within_bounds(w, x, y):
-        return {"ok": False, "error": "Target location out of field bounds."}
-    if _in_no_go_zone(w, x, y):
-        return {"ok": False, "error": "Target location lies within a no-go zone."}
+    return _move_to_impl(w, x, y, yaw)
 
-    w.pose.x, w.pose.y = x, y
-    if yaw is not None:
-        w.pose.yaw = yaw
-    return {"ok": True, "pose": {"x": w.pose.x, "y": w.pose.y, "yaw": w.pose.yaw}}
 
 @function_tool
 def move_home(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     """Drives the rover to the configured home pose."""
     w = ws(ctx)
-    if w.safety_mode:
-        return {"ok": False, "error": "Safety mode is enabled. Unlock before moving."}
     hp = w.home_pose
-    return move_to(ctx, hp.x, hp.y, hp.yaw)
+    # FIXED: Use helper function instead of calling move_to tool
+    return _move_to_impl(w, hp.x, hp.y, hp.yaw)
 
 
 @function_tool
 def harvest_fruit(ctx: RunContextWrapper[FarmContext], plant_id: str) -> Dict[str, Any]:
     """
-    Harvests fruit from a specified plant at the rover’s current position.
+    Harvests fruit from a specified plant at the rover's current position.
     Preconditions: safety off, plant exists & ripe, within tolerance, capacity ok.
     """
     w = ws(ctx)
@@ -186,23 +199,6 @@ def harvest_fruit(ctx: RunContextWrapper[FarmContext], plant_id: str) -> Dict[st
         "hopper_load_kg": w.hopper_load_kg,
     }
 
-@function_tool
-def dump_hopper(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
-    """
-    Empties the hopper at the collection bin station.
-    Preconditions: safety off, within station tolerance of collection_bin.
-    """
-    w = ws(ctx)
-    if w.safety_mode:
-        return {"ok": False, "error": "Safety mode is enabled. Unlock before dumping."}
-
-    bin_pose = w.stations.collection_bin
-    if _dist_xy(w.pose.x, w.pose.y, bin_pose.x, bin_pose.y) > w.station_tolerance_xy:
-        return {"ok": False, "error": "Not at collection bin."}
-
-    dumped = w.hopper_load_kg
-    w.hopper_load_kg = 0.0
-    return {"ok": True, "message": f"Dumped {dumped:.2f} kg at collection bin.", "dumped_kg": dumped}
 
 @function_tool
 def water_plant(ctx: RunContextWrapper[FarmContext], plant_id: str, liters: float) -> Dict[str, Any]:
@@ -238,6 +234,7 @@ def water_plant(ctx: RunContextWrapper[FarmContext], plant_id: str, liters: floa
         "plant_moisture": plant.moisture,
     }
 
+
 @function_tool
 def spray_pesticide(ctx: RunContextWrapper[FarmContext], plant_id: str, ml: float) -> Dict[str, Any]:
     """
@@ -270,6 +267,25 @@ def spray_pesticide(ctx: RunContextWrapper[FarmContext], plant_id: str, ml: floa
     }
 
 @function_tool
+def dump_hopper(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
+    """
+    Empties the hopper at the collection bin station.
+    Preconditions: safety off, within station tolerance of collection_bin.
+    """
+    w = ws(ctx)
+    if w.safety_mode:
+        return {"ok": False, "error": "Safety mode is enabled. Unlock before dumping."}
+
+    bin_pose = w.stations.collection_bin
+    if _dist_xy(w.pose.x, w.pose.y, bin_pose.x, bin_pose.y) > w.station_tolerance_xy:
+        return {"ok": False, "error": "Not at collection bin."}
+
+    dumped = w.hopper_load_kg
+    w.hopper_load_kg = 0.0
+    return {"ok": True, "message": f"Dumped {dumped:.2f} kg at collection bin.", "dumped_kg": dumped}
+
+
+@function_tool
 def refill_water_tank(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     """
     Refills the water tank to capacity at the water station.
@@ -284,6 +300,7 @@ def refill_water_tank(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
 
     w.water_tank_l = w.water_tank_capacity_l
     return {"ok": True, "message": f"Water tank refilled to {w.water_tank_l:.2f} L.", "water_tank_l": w.water_tank_l}
+
 
 @function_tool
 def refill_pesticide(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
@@ -305,6 +322,7 @@ def refill_pesticide(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
         "pesticide_tank_ml": w.pesticide_tank_ml,
     }
 
+
 @function_tool
 def recharge(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     """
@@ -321,7 +339,6 @@ def recharge(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     w.battery_pct = 100.0
     return {"ok": True, "message": "Battery recharged to 100%.", "battery_pct": w.battery_pct}
 
-# ───────────── Sensors / Reads
 
 @function_tool
 def sense_pose(ctx: RunContextWrapper[FarmContext]) -> Dict[str, float]:
@@ -329,10 +346,12 @@ def sense_pose(ctx: RunContextWrapper[FarmContext]) -> Dict[str, float]:
     p = ws(ctx).pose
     return {"x": p.x, "y": p.y, "yaw": p.yaw}
 
+
 @function_tool
 def sense_battery(ctx: RunContextWrapper[FarmContext]) -> str:
     """Read-only. Returns the current battery percentage string."""
     return f"{ws(ctx).battery_pct:.1f}%"
+
 
 @function_tool
 def sense_hopper(ctx: RunContextWrapper[FarmContext]) -> Dict[str, float]:
@@ -340,12 +359,14 @@ def sense_hopper(ctx: RunContextWrapper[FarmContext]) -> Dict[str, float]:
     w = ws(ctx)
     return {"load_kg": w.hopper_load_kg, "capacity_kg": w.hopper_capacity_kg}
 
+
 @function_tool
 def list_plants(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Dict[str, Any]]:
     """Read-only. Returns all plants and attributes."""
     w = ws(ctx)
     # Convert Pydantic models to plain dicts
     return {pid: p.model_dump() for pid, p in w.plants.items()}
+
 
 @function_tool
 def scan_plant(ctx: RunContextWrapper[FarmContext], plant_id: str) -> Dict[str, Any]:
@@ -355,6 +376,7 @@ def scan_plant(ctx: RunContextWrapper[FarmContext], plant_id: str) -> Dict[str, 
         return {"error": "Unknown plant id."}
     return plant.model_dump()
 
+
 @function_tool
 def get_plant_pose(ctx: RunContextWrapper[FarmContext], plant_id: str) -> Dict[str, float] | Dict[str, str]:
     """Read-only. Returns {'x','y'} or {'error': ...} for unknown plant."""
@@ -362,6 +384,7 @@ def get_plant_pose(ctx: RunContextWrapper[FarmContext], plant_id: str) -> Dict[s
     if plant is None:
         return {"error": "Unknown plant id."}
     return {"x": plant.pose.x, "y": plant.pose.y}
+
 
 @function_tool
 def get_station_pose(ctx: RunContextWrapper[FarmContext], station_name: str) -> Dict[str, float] | Dict[str, str]:
