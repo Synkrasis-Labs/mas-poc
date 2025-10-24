@@ -76,11 +76,6 @@ def _check_station_occupied(wstate, rover_id: str, station_x: float, station_y: 
     return False, None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# INTERNAL HELPER FUNCTIONS (Not decorated with @function_tool)
-# These are safe to call from within other functions
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def _log_task_completion_impl(w, rover_id: str, task_description: str) -> None:
     """Internal helper to log task completion without calling a tool."""
     log_entry = {
@@ -125,10 +120,6 @@ def _move_to_impl(w, my_id: str, x: float, y: float, yaw: Optional[float] = None
     rover.status = "moving"
     return {"ok": True, "pose": {"x": rover.pose.x, "y": rover.pose.y, "yaw": rover.pose.yaw}}
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# FARMING ROVER CLASS
-# ═══════════════════════════════════════════════════════════════════════════════
 
 class FarmingRover:
     """
@@ -230,10 +221,6 @@ class FarmingRover:
             "conflict_log": [],
         }
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# MULTI-AGENT COORDINATION FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @function_tool
 def get_my_rover_id(ctx: RunContextWrapper[FarmContext]) -> str:
@@ -361,10 +348,6 @@ def log_task_completion(ctx: RunContextWrapper[FarmContext], task_description: s
     return {"ok": True, "message": "Task logged."}
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# WORLD STATE QUERIES
-# ═══════════════════════════════════════════════════════════════════════════════
-
 @function_tool
 def get_world_state(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     """Returns the full world-state snapshot as a plain dict."""
@@ -394,10 +377,6 @@ def summarize_world_state(ctx: RunContextWrapper[FarmContext]) -> str:
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SAFETY & CONTROL
-# ═══════════════════════════════════════════════════════════════════════════════
-
 @function_tool
 def unlock_safety_mode(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     """Disables the rover's safety lock to allow motion and actuations."""
@@ -426,10 +405,6 @@ def lock_safety_mode(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     return {"ok": True, "message": "Safety mode locked."}
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# MOTION
-# ═══════════════════════════════════════════════════════════════════════════════
-
 @function_tool
 def move_to(ctx: RunContextWrapper[FarmContext], x: float, y: float, yaw: Optional[float] = None, speed: Optional[float] = None) -> Dict[str, Any]:
     """
@@ -452,13 +427,8 @@ def move_home(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
         return {"ok": False, "error": "Rover not found."}
     
     hp = rover.home_pose
-    # FIXED: Use helper function instead of calling move_to tool
     return _move_to_impl(w, my_id, hp.x, hp.y, hp.yaw)
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PLANT OPERATIONS
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @function_tool
 def harvest_fruit(ctx: RunContextWrapper[FarmContext], plant_id: str) -> Dict[str, Any]:
@@ -501,7 +471,6 @@ def harvest_fruit(ctx: RunContextWrapper[FarmContext], plant_id: str) -> Dict[st
     plant.reserved_by = None  # Auto-release after harvest
     rover.status = "harvesting"
     
-    # FIXED: Use helper function instead of calling log_task_completion tool
     _log_task_completion_impl(w, my_id, f"Harvested {plant.fruit_weight:.2f}kg from {plant_id}")
     
     return {
@@ -605,7 +574,6 @@ def spray_pesticide(ctx: RunContextWrapper[FarmContext], plant_id: str, ml: floa
     plant.reserved_by = None  # Auto-release after spraying
     rover.status = "spraying"
     
-    # FIXED: Use helper function instead of calling log_task_completion tool
     _log_task_completion_impl(w, my_id, f"Sprayed {ml:.0f}ml pesticide on {plant_id}")
     
     return {
@@ -614,10 +582,6 @@ def spray_pesticide(ctx: RunContextWrapper[FarmContext], plant_id: str, ml: floa
         "pesticide_tank_ml": rover.pesticide_tank_ml,
     }
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# STATION OPERATIONS
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @function_tool
 def dump_hopper(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
@@ -648,7 +612,6 @@ def dump_hopper(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     rover.hopper_load_kg = 0.0
     rover.status = "dumping"
     
-    # FIXED: Use helper function instead of calling log_task_completion tool
     _log_task_completion_impl(w, my_id, f"Dumped {dumped:.2f}kg at collection bin")
     
     return {"ok": True, "message": f"Dumped {dumped:.2f} kg at collection bin.", "dumped_kg": dumped}
@@ -682,7 +645,6 @@ def refill_water_tank(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     rover.water_tank_l = rover.water_tank_capacity_l
     rover.status = "refilling"
     
-    # FIXED: Use helper function instead of calling log_task_completion tool
     _log_task_completion_impl(w, my_id, f"Refilled water tank to {rover.water_tank_l:.2f}L")
     
     return {"ok": True, "message": f"Water tank refilled to {rover.water_tank_l:.2f} L.", "water_tank_l": rover.water_tank_l}
@@ -716,7 +678,6 @@ def refill_pesticide(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     rover.pesticide_tank_ml = rover.pesticide_tank_capacity_ml
     rover.status = "refilling"
     
-    # FIXED: Use helper function instead of calling log_task_completion tool
     _log_task_completion_impl(w, my_id, f"Refilled pesticide tank to {rover.pesticide_tank_ml:.0f}ml")
     
     return {
@@ -754,15 +715,10 @@ def recharge(ctx: RunContextWrapper[FarmContext]) -> Dict[str, Any]:
     rover.battery_pct = 100.0
     rover.status = "charging"
     
-    # FIXED: Use helper function instead of calling log_task_completion tool
     _log_task_completion_impl(w, my_id, "Recharged battery to 100%")
     
     return {"ok": True, "message": "Battery recharged to 100%.", "battery_pct": rover.battery_pct}
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# SENSORS / READ-ONLY OPERATIONS
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @function_tool
 def sense_pose(ctx: RunContextWrapper[FarmContext]) -> Dict[str, float]:
