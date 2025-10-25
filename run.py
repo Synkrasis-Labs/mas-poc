@@ -32,7 +32,7 @@ async def run_rover_agent(rover_id: str, agent, prompt: str, world_state: Dict[s
     print(f"{'='*80}\n")
     
     with trace(f"{rover_id}_task"):
-        result = await Runner.run(agent, prompt, context=ctx, max_turns=30)
+        result = await Runner.run(agent, prompt, context=ctx, max_turns=100)
         
         print(f"\n{'='*80}")
         print(f"{rover_id} completed task")
