@@ -1,8 +1,2 @@
-## For single-agent execution:
-uv run run.py single
-
-## For sequential execution (default):
-uv run run.py 
-
-## For concurrent execution:
-uv run run.py concurrent
+## Run
+uv run -m petri_nets.examples.farm_rover_example
