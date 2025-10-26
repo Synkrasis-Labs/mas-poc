@@ -125,6 +125,13 @@ async def run_task_concurrent(task_id: str):
             results[i] = {"rover_id": task['agents'][i], "success": False, "error": str(result), "context": None, "result": None}
 
     logger.print_timeline()
+    with open("timeline.txt", "w", encoding="utf-8") as f:
+        for timestamp, agent_id, func, args in logger.log:
+            args_str = ", ".join(f"{k}={v}" for k, v in list(args.items())[:2])
+            if len(args) > 2:
+                args_str += ", ..."
+            f.write(f"[{timestamp:6.3f}s] {agent_id:10s} {func}({args_str})\n")
+    print("wrote: timeline.txt")
 
     execution_seq = logger.get_sequence()
     print(f"\nTotal actions: {len(execution_seq)}")

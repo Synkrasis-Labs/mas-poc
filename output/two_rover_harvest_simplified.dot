@@ -1,0 +1,138 @@
+digraph G {
+  rankdir=LR;
+  ranksep=1.5;
+  nodesep=0.8;
+  labelloc="t";
+  label="Two Rover Independent Harvest (Simplified)";
+  fontsize=16;
+  node [fontsize=12];
+  edge [fontsize=10];
+
+  subgraph cluster_resources {
+    label="Resources";
+    color="#E6B422";
+    style="rounded,filled";
+    fillcolor="#FFFEF0";
+
+    "plant_A_available" [shape=cylinder, style="filled", fillcolor="#FFE699", label="plant_A\n[1/1]", fontsize=11];
+    "plant_C_available" [shape=cylinder, style="filled", fillcolor="#FFE699", label="plant_C\n[1/1]", fontsize=11];
+    "collection_bin_available" [shape=cylinder, style="filled", fillcolor="#FFE699", label="collection_bin\n[1/1]", fontsize=11];
+  }
+
+  subgraph cluster_rover_1 {
+    label="rover_1";
+    color="#6FA8DC";
+    style="rounded,filled";
+    fillcolor="#E8F4FD";
+
+    "rover_1_state_0" [shape=circle, style="filled", fillcolor="#4A90E2", penwidth=2.5, label="S0\n●", width=0.6, height=0.6];
+    "rover_1_state_1" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S1", width=0.6, height=0.6];
+    "rover_1_state_2" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S2", width=0.6, height=0.6];
+    "rover_1_state_3" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S3", width=0.6, height=0.6];
+    "rover_1_state_4" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S4", width=0.6, height=0.6];
+    "rover_1_state_5" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S5", width=0.6, height=0.6];
+    "rover_1_state_6" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S6", width=0.6, height=0.6];
+    "rover_1_state_7" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S7", width=0.6, height=0.6];
+    "rover_1_state_8" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S8", width=0.6, height=0.6];
+    "rover_1_state_9" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S9", width=0.6, height=0.6];
+    "rover_1_state_10" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S10", width=0.6, height=0.6];
+    "rover_1_state_11" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S11", width=0.6, height=0.6];
+  }
+
+  subgraph cluster_rover_2 {
+    label="rover_2";
+    color="#6FA8DC";
+    style="rounded,filled";
+    fillcolor="#E8F4FD";
+
+    "rover_2_state_0" [shape=circle, style="filled", fillcolor="#4A90E2", penwidth=2.5, label="S0\n●", width=0.6, height=0.6];
+    "rover_2_state_1" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S1", width=0.6, height=0.6];
+    "rover_2_state_2" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S2", width=0.6, height=0.6];
+    "rover_2_state_3" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S3", width=0.6, height=0.6];
+    "rover_2_state_4" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S4", width=0.6, height=0.6];
+    "rover_2_state_5" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S5", width=0.6, height=0.6];
+    "rover_2_state_6" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S6", width=0.6, height=0.6];
+    "rover_2_state_7" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S7", width=0.6, height=0.6];
+    "rover_2_state_8" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S8", width=0.6, height=0.6];
+    "rover_2_state_9" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S9", width=0.6, height=0.6];
+    "rover_2_state_10" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S10", width=0.6, height=0.6];
+    "rover_2_state_11" [shape=circle, style="filled", fillcolor="#B3D9FF", penwidth=1.5, label="S11", width=0.6, height=0.6];
+  }
+
+  // Transitions (progress only)
+  "rover_1__step_0__unlock_safety_mode" [shape=box, style="filled", fillcolor="#B7DEE8", label="unlock_safety_mode", width=1.5, height=0.6];
+  "rover_1__step_1__reserve_plant" [shape=box, style="filled", fillcolor="#B7DEE8", label="reserve_plant", width=1.5, height=0.6];
+  "rover_1__step_2__move_to" [shape=box, style="filled", fillcolor="#B7DEE8", label="move_to", width=1.5, height=0.6];
+  "rover_1__step_3__harvest_fruit" [shape=box, style="filled", fillcolor="#B7DEE8", label="harvest_fruit", width=1.5, height=0.6];
+  "rover_1__step_4__release_plant" [shape=box, style="filled", fillcolor="#B7DEE8", label="release_plant", width=1.5, height=0.6];
+  "rover_1__step_5__reserve_station" [shape=box, style="filled", fillcolor="#B7DEE8", label="reserve_station", width=1.5, height=0.6];
+  "rover_1__step_6__move_to" [shape=box, style="filled", fillcolor="#B7DEE8", label="move_to", width=1.5, height=0.6];
+  "rover_1__step_7__dump_hopper" [shape=box, style="filled", fillcolor="#B7DEE8", label="dump_hopper", width=1.5, height=0.6];
+  "rover_1__step_8__release_station" [shape=box, style="filled", fillcolor="#B7DEE8", label="release_station", width=1.5, height=0.6];
+  "rover_1__step_9__move_home" [shape=box, style="filled", fillcolor="#B7DEE8", label="move_home", width=1.5, height=0.6];
+  "rover_1__step_10__lock_safety_mode" [shape=box, style="filled", fillcolor="#B7DEE8", label="lock_safety_mode", width=1.5, height=0.6];
+  "rover_2__step_0__unlock_safety_mode" [shape=box, style="filled", fillcolor="#B7DEE8", label="unlock_safety_mode", width=1.5, height=0.6];
+  "rover_2__step_1__reserve_plant" [shape=box, style="filled", fillcolor="#B7DEE8", label="reserve_plant", width=1.5, height=0.6];
+  "rover_2__step_2__move_to" [shape=box, style="filled", fillcolor="#B7DEE8", label="move_to", width=1.5, height=0.6];
+  "rover_2__step_3__harvest_fruit" [shape=box, style="filled", fillcolor="#B7DEE8", label="harvest_fruit", width=1.5, height=0.6];
+  "rover_2__step_4__release_plant" [shape=box, style="filled", fillcolor="#B7DEE8", label="release_plant", width=1.5, height=0.6];
+  "rover_2__step_5__reserve_station" [shape=box, style="filled", fillcolor="#B7DEE8", label="reserve_station", width=1.5, height=0.6];
+  "rover_2__step_6__move_to" [shape=box, style="filled", fillcolor="#B7DEE8", label="move_to", width=1.5, height=0.6];
+  "rover_2__step_7__dump_hopper" [shape=box, style="filled", fillcolor="#B7DEE8", label="dump_hopper", width=1.5, height=0.6];
+  "rover_2__step_8__release_station" [shape=box, style="filled", fillcolor="#B7DEE8", label="release_station", width=1.5, height=0.6];
+  "rover_2__step_9__move_home" [shape=box, style="filled", fillcolor="#B7DEE8", label="move_home", width=1.5, height=0.6];
+  "rover_2__step_10__lock_safety_mode" [shape=box, style="filled", fillcolor="#B7DEE8", label="lock_safety_mode", width=1.5, height=0.6];
+
+  "rover_1_state_0" -> "rover_1__step_0__unlock_safety_mode" [penwidth=1.5];
+  "rover_1__step_0__unlock_safety_mode" -> "rover_1_state_1" [penwidth=1.5];
+  "rover_1_state_1" -> "rover_1__step_1__reserve_plant" [penwidth=1.5];
+  "plant_A_available" -> "rover_1__step_1__reserve_plant" [penwidth=1.5];
+  "rover_1__step_1__reserve_plant" -> "rover_1_state_2" [penwidth=1.5];
+  "rover_1_state_2" -> "rover_1__step_2__move_to" [penwidth=1.5];
+  "rover_1__step_2__move_to" -> "rover_1_state_3" [penwidth=1.5];
+  "rover_1_state_3" -> "rover_1__step_3__harvest_fruit" [penwidth=1.5];
+  "rover_1__step_3__harvest_fruit" -> "rover_1_state_4" [penwidth=1.5];
+  "rover_1_state_4" -> "rover_1__step_4__release_plant" [penwidth=1.5];
+  "rover_1__step_4__release_plant" -> "rover_1_state_5" [penwidth=1.5];
+  "rover_1__step_4__release_plant" -> "plant_A_available" [penwidth=1.5];
+  "rover_1_state_5" -> "rover_1__step_5__reserve_station" [penwidth=1.5];
+  "collection_bin_available" -> "rover_1__step_5__reserve_station" [penwidth=1.5];
+  "rover_1__step_5__reserve_station" -> "rover_1_state_6" [penwidth=1.5];
+  "rover_1_state_6" -> "rover_1__step_6__move_to" [penwidth=1.5];
+  "rover_1__step_6__move_to" -> "rover_1_state_7" [penwidth=1.5];
+  "rover_1_state_7" -> "rover_1__step_7__dump_hopper" [penwidth=1.5];
+  "rover_1__step_7__dump_hopper" -> "rover_1_state_8" [penwidth=1.5];
+  "rover_1_state_8" -> "rover_1__step_8__release_station" [penwidth=1.5];
+  "rover_1__step_8__release_station" -> "rover_1_state_9" [penwidth=1.5];
+  "rover_1__step_8__release_station" -> "collection_bin_available" [penwidth=1.5];
+  "rover_1_state_9" -> "rover_1__step_9__move_home" [penwidth=1.5];
+  "rover_1__step_9__move_home" -> "rover_1_state_10" [penwidth=1.5];
+  "rover_1_state_10" -> "rover_1__step_10__lock_safety_mode" [penwidth=1.5];
+  "rover_1__step_10__lock_safety_mode" -> "rover_1_state_11" [penwidth=1.5];
+  "rover_2_state_0" -> "rover_2__step_0__unlock_safety_mode" [penwidth=1.5];
+  "rover_2__step_0__unlock_safety_mode" -> "rover_2_state_1" [penwidth=1.5];
+  "rover_2_state_1" -> "rover_2__step_1__reserve_plant" [penwidth=1.5];
+  "plant_C_available" -> "rover_2__step_1__reserve_plant" [penwidth=1.5];
+  "rover_2__step_1__reserve_plant" -> "rover_2_state_2" [penwidth=1.5];
+  "rover_2_state_2" -> "rover_2__step_2__move_to" [penwidth=1.5];
+  "rover_2__step_2__move_to" -> "rover_2_state_3" [penwidth=1.5];
+  "rover_2_state_3" -> "rover_2__step_3__harvest_fruit" [penwidth=1.5];
+  "rover_2__step_3__harvest_fruit" -> "rover_2_state_4" [penwidth=1.5];
+  "rover_2_state_4" -> "rover_2__step_4__release_plant" [penwidth=1.5];
+  "rover_2__step_4__release_plant" -> "rover_2_state_5" [penwidth=1.5];
+  "rover_2__step_4__release_plant" -> "plant_C_available" [penwidth=1.5];
+  "rover_2_state_5" -> "rover_2__step_5__reserve_station" [penwidth=1.5];
+  "collection_bin_available" -> "rover_2__step_5__reserve_station" [penwidth=1.5];
+  "rover_2__step_5__reserve_station" -> "rover_2_state_6" [penwidth=1.5];
+  "rover_2_state_6" -> "rover_2__step_6__move_to" [penwidth=1.5];
+  "rover_2__step_6__move_to" -> "rover_2_state_7" [penwidth=1.5];
+  "rover_2_state_7" -> "rover_2__step_7__dump_hopper" [penwidth=1.5];
+  "rover_2__step_7__dump_hopper" -> "rover_2_state_8" [penwidth=1.5];
+  "rover_2_state_8" -> "rover_2__step_8__release_station" [penwidth=1.5];
+  "rover_2__step_8__release_station" -> "rover_2_state_9" [penwidth=1.5];
+  "rover_2__step_8__release_station" -> "collection_bin_available" [penwidth=1.5];
+  "rover_2_state_9" -> "rover_2__step_9__move_home" [penwidth=1.5];
+  "rover_2__step_9__move_home" -> "rover_2_state_10" [penwidth=1.5];
+  "rover_2_state_10" -> "rover_2__step_10__lock_safety_mode" [penwidth=1.5];
+  "rover_2__step_10__lock_safety_mode" -> "rover_2_state_11" [penwidth=1.5];
+}
