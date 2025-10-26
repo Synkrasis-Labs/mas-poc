@@ -19,7 +19,7 @@ from petri_nets.replayer import PetriNetReplayer
 from petri_nets.metrics import compute_mas_core_metrics
 
 # Task definitions
-from prompts import get_task, list_tasks
+from prompt_registry import get_task, list_tasks
 
 load_dotenv(override=True)
 # Import your agent definitions
