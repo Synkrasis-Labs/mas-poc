@@ -1,8 +1,10 @@
 # farm_context.py
 from __future__ import annotations
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field, model_validator
 from uuid import uuid4
+from datetime import datetime
+
+from pydantic import BaseModel, Field, model_validator, PrivateAttr
 
 
 class XY(BaseModel):
@@ -48,14 +50,14 @@ class Plant(BaseModel):
     pest: bool
     has_fruit: bool
     fruit_weight: float = Field(ge=0.0)
-    reserved_by: Optional[str] = None  # NEW: Track which rover has reserved this plant
+    reserved_by: Optional[str] = None  # Which rover has reserved this plant
 
 
 class StationPose(BaseModel):
     x: float
     y: float
     yaw: float = 0.0
-    occupied_by: Optional[str] = None  # NEW: Track which rover is at this station
+    occupied_by: Optional[str] = None  # Which rover occupies this station
 
 
 class Stations(BaseModel):
@@ -70,10 +72,10 @@ class RoverState(BaseModel):
     # Kinematics
     pose: Pose
     home_pose: Pose
-    
+
     # Safety
     safety_mode: bool = True
-    
+
     # Resources
     battery_pct: float = Field(ge=0.0, le=100.0)
     hopper_capacity_kg: float = Field(gt=0.0)
@@ -82,12 +84,12 @@ class RoverState(BaseModel):
     water_tank_l: float = Field(ge=0.0)
     pesticide_tank_capacity_ml: float = Field(gt=0.0)
     pesticide_tank_ml: float = Field(ge=0.0)
-    
+
     # Task management
     status: str = "idle"  # idle, moving, harvesting, watering, spraying, refilling, dumping, charging
     current_task: Optional[str] = None
     task_queue: List[str] = Field(default_factory=list)
-    
+
     @model_validator(mode="after")
     def _resource_consistency(self):
         assert self.hopper_load_kg <= self.hopper_capacity_kg, "hopper load exceeds capacity"
@@ -98,31 +100,31 @@ class RoverState(BaseModel):
 
 class WorldState(BaseModel):
     """Shared world state for all rovers in the multi-agent system."""
-    
+
     # Workspace
     field_bounds: Bounds
     no_go_xy: List[Rect] = Field(default_factory=list)
-    
+
     # Tolerances
     plant_tolerance_xy: float = Field(gt=0.0)
     station_tolerance_xy: float = Field(gt=0.0)
     collision_safety_radius: float = Field(gt=0.0, default=1.0)
-    
+
     # Multi-agent entities
     rovers: Dict[str, RoverState]
-    
+
     # Shared resources
     plants: Dict[str, Plant]
     stations: Stations
-    
+
     # Policy thresholds
     ripe_threshold: float = Field(ge=0.0, le=1.0)
     max_moisture: float = Field(ge=0.0, le=1.0)
-    
+
     # Coordination logs
     task_log: List[Dict[str, Any]] = Field(default_factory=list)
     conflict_log: List[Dict[str, Any]] = Field(default_factory=list)
-    
+
     @model_validator(mode="after")
     def _validate_rovers(self):
         assert len(self.rovers) > 0, "Must have at least one rover"
@@ -132,48 +134,62 @@ class WorldState(BaseModel):
 class FarmContext(BaseModel):
     """Context for a single rover agent in the multi-agent system."""
     world_state: WorldState
-    rover_id: str  # NEW: Which rover this context belongs to
+    rover_id: str  # Which rover this context belongs to
     run_id: str = Field(default_factory=lambda: str(uuid4()))
     actor: str = "RoverAgent"
     tool_calls: List[Dict] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
-    
+
+    # Private (non-validated) attribute for external execution logger
+    _exec_logger: Optional[Any] = PrivateAttr(default=None)
+
+    # --- lifecycle / helpers -------------------------------------------------
+
     @classmethod
     def from_init_dict(cls, init_state: Dict, rover_id: str) -> "FarmContext":
-        """
-        Build a FarmContext for a specific rover from the init world state dict.
-        
-        Args:
-            init_state: The initial world state dictionary
-            rover_id: The ID of the rover this context is for
-        """
+        """Build a FarmContext for a specific rover from the init world state dict."""
         world_state = WorldState.model_validate(init_state)
-        
-        # Validate that the rover_id exists
         if rover_id not in world_state.rovers:
-            raise ValueError(f"Rover ID '{rover_id}' not found in world state. Available rovers: {list(world_state.rovers.keys())}")
-        
+            raise ValueError(
+                f"Rover ID '{rover_id}' not found in world state. "
+                f"Available rovers: {list(world_state.rovers.keys())}"
+            )
         return cls(world_state=world_state, rover_id=rover_id)
-    
+
+    def set_execution_logger(self, logger: Any) -> None:
+        """Attach an external execution logger (e.g., ExecutionLogger)."""
+        self._exec_logger = logger
+
+    def log_tool_call(self, function_name: str, arguments: Dict[str, Any]) -> None:
+        """Record a tool call and forward it to the attached logger if present."""
+        self.tool_calls.append({
+            "time": datetime.utcnow().isoformat(),
+            "rover_id": self.rover_id,
+            "function": function_name,
+            "arguments": arguments,
+        })
+        if self._exec_logger is not None:
+            self._exec_logger.log_action(self.rover_id, function_name, arguments)
+
+    # --- views ---------------------------------------------------------------
+
     def snapshot(self) -> Dict:
         """Return a JSON-serializable snapshot of the full world state."""
         return self.world_state.model_dump()
-    
+
     def my_rover_snapshot(self) -> Dict:
         """Return a snapshot of just this rover's state."""
         rover = self.world_state.rovers.get(self.rover_id)
         if rover is None:
             return {"error": "Rover not found"}
         return rover.model_dump()
-    
+
     def short_summary(self) -> str:
         """Return a short summary for this specific rover."""
         ws = self.world_state
         rover = ws.rovers.get(self.rover_id)
-        
         if rover is None:
             return f"[{self.rover_id}] ERROR: Rover not found"
-        
         return (
             f"[{self.rover_id}] pose=({rover.pose.x:.1f},{rover.pose.y:.1f},{rover.pose.yaw:.1f}); "
             f"safety={'ON' if rover.safety_mode else 'OFF'}; "
@@ -185,11 +201,12 @@ class FarmContext(BaseModel):
             f"plants={len(ws.plants)}; "
             f"other_rovers={len(ws.rovers)-1}"
         )
-    
+
     def get_other_rovers(self) -> Dict[str, RoverState]:
         """Get information about all other rovers (excluding this one)."""
-        return {rid: rover for rid, rover in self.world_state.rovers.items() if rid != self.rover_id}
-    
+        return {rid: rover for rid, rover in self.world_state.rovers.items()
+                if rid != self.rover_id}
+
     def get_available_plants(self) -> Dict[str, Plant]:
         """Get plants that are not reserved by other rovers."""
         return {
